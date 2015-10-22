@@ -1,0 +1,189 @@
+Bedeutung rote LED
+==================
+
+ 1x Blinken: CAN-Fehler - Nachricht zu kurz
+ 2x Blinken: CAN-Fehler - Funktion nicht definiert
+ 3x Blinken: CAN-Fehler - Warteschlange voll
+ 4x Blinken: UART-Fehler
+
+
+CAN-Adressen
+============
+ 
+ Insgesamt: 11 Bits lang
+ Einzel:    Letzten 4-Bit der Nachrichten-ID
+ Gruppe:    Bit 5 der Nachrichten-ID auf 1 (16). Die letzten 4 Bit sind irrelevant
+ Art:       Die übrigen 6 Bits kodieren die Art der Nachricht
+
+                              1 1
+                              1 0 9 8 7 6 5 4 3 2 1
+                              A A A A A A G E E E E
+
+
+CAN-Nachrichten-IDs
+===================
+ 
+ Bits    Bedeutung                         Sender (Board/Controller)
+ 
+ 000000  Keepalive Nachricht               (B)
+ 000001  Boot-Up Nachricht                 (B)
+ 000010  Keepalive Nachricht anfordern     (C)
+ 000100  Fehler                            (B)
+ 001000  Antw. Relais unbegrenzt setzen    (B)
+ 001001  Relais unbegrenzt setzen          (C)
+ 001010  Antw. Relais begrenzt setzen      (B)
+ 001011  Relais begrenzt setzen            (C)
+ 010000  Antw. Gesamtpunktestand setzen    (B)
+ 010001  Gesamtpunktestand setzen          (C)
+ 111111  Neuer Wurf                        (B)
+ 
+
+Definition der Nachrichten
+==========================
+
+ 000000 - Keepalive Nachricht
+ 
+   Bedeutung: Nachricht vom Board an den Controller um zu zeigen, dass
+              das Board normal funktioniert und empfangsbereit ist. Die
+              Nachricht wird automatisch circa alle fünf Minuten an den
+              Controller gesendet, kann aber auch explizit angefordert werden.
+
+   Daten:     [0]  Aktuelle Versionsnummer der Firmware
+              [1]  Stellung der Relais 9-16
+              [2]  Stellung der Relais 1-8
+
+
+ 000001 - Boot-Up Nachricht
+ 
+   Bedeutung: Nachricht vom Board an den Controller um zu zeigen, dass
+              das Board soeben hochgefahren ist. Die Nachricht wird einmalig
+              beim Start des Boards verschickt und enthält alle Daten einer
+              Keepalive Nachricht.
+
+   Daten:     [0]  Aktuelle Versionsnummer der Firmware
+              [1]  Stellung der Relais 9-16
+              [2]  Stellung der Relais 1-8
+
+
+ 000010 - Keepalive Nachricht anfordern
+
+   Bedeutung: Anforderung einer Keepalive Nachricht durch den Controller. Das
+              Board antwortet mit einer Keepalive Nachricht.
+
+   Daten:     [0]  Byte mit beliebigen Inhalt (wird ignoriert)
+
+
+ 000100 - Fehler
+ 
+   Bedeutung: Wird vom Board an den Controller geschickt wenn ein Fehler
+              aufgetreten ist.
+
+   Daten:     [0]  Gibt die Art des Fehlers an:
+                     0b00000000 UART-Fehler
+                     0b00000001 CAN-Fehler
+                     0b00000010 Funktion nicht bekannt
+                     0b00000011 Zu wenig Parameter übergeben
+                     0b00000100 Relais Warteschlange voll
+                     
+              [1]  Bei "Funktion nicht bekannt" ID der Nachricht (Bit 9-16)
+              
+              [2]  Bei "Funktion nicht bekannt" ID der Nachricht (Bit 1-8)
+
+ 001000 - Antw. Relais unbegrenzt setzen
+  
+   Bedeutung: Antwort des Boards an den Controller. Die Nachricht enthält
+              die aktuelle Stellung der Relais 1-16 sowie eine Maske, die
+              die veränderten Relais markiert.
+
+   Daten:     [0]  Stellung der Relais 9-16
+              [1]  Stellung der Relais 1-8
+              [2]  Maske 9-16
+              [3]  Maske 1-8
+
+
+ 001001 - Relais unbegrenzt setzen
+ 
+   Bedeutung: Setzt die Relais entsprechend der 2 ersten Bytes. Die Maske in
+              den Bytes 2+3 beschreibt dabei, welches Relais gesetzt werden
+              sollen. Eine 1 bedeutet, dass das Relais berücksichtigt werden
+              soll, eine 0 dass der alte Zustand beibehalten werden soll.
+              Beispiel:    0b00000000 0b00110010 0b00000000 0b00001110
+                           -> Relais 2 wird eingeschaltet
+                              Relais 3+4 werden ausgeschaltet
+                              Die restlichen Relais werden ignoriert
+
+   Daten:     [0]  Stellung der Relais 9-16
+              [1]  Stellung der Relais 1-8
+              [2]  Maske 9-16
+              [3]  Maske 1-8
+
+
+ 001010 - Antw. Relais begrenzt setzen
+
+   Bedeutung: Antwort des Boards an den Controller welche Relais zur Zeit
+              einem Timer unterliegen. Die Nachricht enthält den aktuellen
+              Stand der Relais 1-16, sowie in einer Maske kodiert die Relais,
+              für die ein Timer läuft.
+
+   Daten:     [0]  Stellung der Relais 9-16
+              [1]  Stellung der Relais 1-8
+              [2]  Maske 9-16
+              [3]  Maske 1-8
+
+
+ 001011 - Relais begrenzt setzen
+
+   Bedeutung: Setzt die Relais entsprechend der 2 ersten Bytes (1-16) eine
+              angegebene Zeit lang auf den übergebenen Wert und stellt nach
+              Ablauf der Zeit den ursprünglichen Zustand wieder her. Eine
+              Maske definiert, welche Relais zu berücksichtigen sind (s.o.).
+
+   Daten:     [0]  Stellung der Relais 9-16
+              [1]  Stellung der Relais 1-8
+              [2]  Maske 9-16
+              [3]  Maske 1-8
+              [4]  Bit 25-32 eines 32-Bit Integers für die Zeit 
+              [5]  Bit 17-24 eines 32-Bit Integers für die Zeit
+              [6]  Bit  9-16 eines 32-Bit Integers für die Zeit
+              [7]  Bit  1- 8 eines 32-Bit Integers für die Zeit
+
+
+ 010000 - Antw. Gesamtpunktestand setzen
+
+   Bedeutung: Antwort des Boards an den Controller mit dem eingestellten
+              Gesamtpunktestand.
+
+   Daten:     [0]  Bit 9-16 eines 16-Bit Integers für den Gesamtpunktestand
+              [1]  Bit 1- 8 eines 16-Bit Integers für den Gesamtpunktestand
+
+
+ 010001 - Gesamtpunktestand setzen
+
+   Bedeutung: Setzt den Gesamtpunktestand (weißer Kasten bei der Kegelbahn)
+              auf den angegebenen Wert. Da maximal 9999 Angezeigt werden kann,
+              wird über übergebene Integer mod 10000 genommen und das Ergebnis
+              angezeigt. Hierfür werden die (im Quellcode fest programmierten)
+              Relais verwendet. (Standard: Relais 3-7)
+
+   Daten:     [0]  Bit 9-16 eines 16-Bit Integers für den Gesamtpunktestand
+              [1]  Bit 1- 8 eines 16-Bit Integers für den Gesamtpunktestand
+
+
+ 111111 - Neuer Wurf
+
+   Bedeutung: Da die wichtigste zu verarbeitende Information ein neuer Wurf
+              ist, hat dieses Ereignis die höchste ID zugewiesen bekommen. Das
+              Board übertragt den String des Druckers (welches über UART
+              eingelesen wird) leicht verändert an den Controller. Um Platz
+              bei der Übertragung zu sparen, werden das Steuerzeichen '\x19',
+              alle Leerzeichen, sowie der Buchstabe 'S' aus dem ursprünglichen
+              String entfernt. Übrig bleiben vier Zahlen (#Wurf, Holz, #Punkte1,
+              #Punkte2).
+
+   Daten:     [0]  Bit 9-16 eines 16-Bit Integers für den aktuellen Wurf
+              [1]  Bit 1- 8 eines 16-Bit Integers für den aktuellen Wurf
+              [2]  Bit 1- 8 eines 8-Bit Integers für die aktuellen Holz
+              [3]  Bit 9-16 eines 16-Bit Integers für den 1. Punktestand
+              [4]  Bit 1- 8 eines 16-Bit Integers für den 1. Punktestand
+              [5]  Bit 9-16 eines 16-Bit Integers für den 2. Punktestand
+              [6]  Bit 1- 8 eines 16-Bit Integers für den 2. Punktestand
